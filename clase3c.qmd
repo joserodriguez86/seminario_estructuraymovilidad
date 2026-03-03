@@ -1,0 +1,199 @@
+---
+title: "Clase 3c - Preprocesamiento de datos III"
+subtitle: "Estructura y movilidad social: nuevas configuraciones suburbanas"
+author: 
+  - "Eduardo Chávez Molina"
+  - "María Clara Fernández Melian"
+  - "José Rodríguez de la Fuente"
+date: today
+date-format: "YYYY"
+format: 
+  html:
+    theme: zephyr
+    toc: true
+    toc-title: Contenido
+    number-sections: true
+    embed-resources: true
+    smooth-scroll: true
+    code-overflow: wrap
+    code-copy: hover
+    code-tools: false
+  pdf: 
+    toc: true
+    pdf-engine: xelatex
+    fig-format: png  
+    fig-dpi: 300     
+    fig-width: 8
+    fig-height: 5
+    highlight-style: espresso
+    include-in-header: 
+       text: |
+         \usepackage{fvextra}
+         \DefineVerbatimEnvironment{Highlighting}{Verbatim}{breaklines,commandchars=\\\{\}}
+         \DefineVerbatimEnvironment{OutputCode}{Verbatim}{breaklines,commandchars=\\\{\}}
+lang: es
+highlight-style: espresso
+lightbox: true
+cache: true
+execute:
+  warning: false
+  message: false
+---
+
+# Transformando los datos: creación y modificación variables
+
+Teniendo ya la base en formato ordenado, habiendo seleccionado aquellas variables que vayamos a utilizar y filtrando los casos que nos interesan, el siguiente paso en el trabajo cuantitativo suele ser la creación de nuevas variables y/o la modificación de las existentes.  
+
+Esta fase en el trabajo investigativo puede implicar, entre otras opciones: 
+
+- Generar nuevas variables a partir de las existentes. Por ejemplo, realizar una sumatoria o resta aritmética a partir de los datos disponibles en dos o más variables.
+
+- Recodificar una variable existente. Por ejemplo, reduciendo el número de categorías de una variable categórica o numérica (grupos etarios, niveles de ingreso, etc.).
+
+- Generar una nueva variable a partir del cumplimiento de determinadas condiciones combinadas. Generalmente este trabajo se realiza para construir variables complejas. Por ejemplo, crear una variable que indique el tipo de hogar en cada caso.  
+
+Vamos a abrir nuevamente la base de respondentes:   
+
+```{r}
+library(haven)
+library(tidyverse)
+
+base_esa <- read_sav("fuentes/base_esa_pisac.sav")
+```
+
+
+## Creación de variables mediante cálculos y expresiones condicionales
+
+Para realizar estas operaciones utilizaremos siempre la función `mutate()` del paquete `dplyr`. Básicamente esta función nos creará una nueva columna en la matriz de datos, que contendrá los valores que le indiquemos.  
+
+Vamos a construir como ejemplo la variable **hacinamiento** (cociente entre la cantidad total de personas del hogar y la cantidad total de habitaciones o piezas de las que dispone el mismo). Para ello necesitaremos la información de dos variables:  *MIEMBROS* y *M9.3*.  
+
+Normalmente se establece que si:  
+
+- Hay menos de dos personas por cuarto no hay hacinamiento,  
+- Hay de 2 a 3 personas por cuarto se considera hacinamiento no crítico y  
+- Si hay más de 3 personas por cuarto se considera hacinamiento crítico.  
+
+Entonces debemos realizar dos procesos:  
+
+- Debemos calcular el cociente entre las dos variables (**hacina_cociente**)  
+- Debemos indicar el nivel de hacinamiento que presenta el hogar (**hacinamiento**).
+
+
+::: {.callout-note title="Manual de códigos"}
+Recuerden siempre tener *a mano* el manual de códigos o el diseño de registro de la encuesta que están utilizando para saber el nombre de las variables sobre las que se realizarán las operaciones.  
+:::
+
+
+```{r}
+base_esa <- base_esa %>% 
+  mutate(hacina_cociente = MIEMBROS / M9.3)
+
+```
+
+Ya contamos con la variable **hacina_cociente** que nos indica la proporción de personas por ambiente. A continuación, podemos armar una nueva variable que identifique a aquellos hogares según su situación de hacinamiento.  
+
+Para ello, introduciremos una nueva función que nos permite plantear condiciones: `case_when()`. Esta función es muy similar al `IF` en `SPSS` o la función `ifelse()` de R base. `case_when()` se pasa dentro del mutate, y se le indica la condición que se quiere evaluar y el valor que se le asignará a la nueva variable en caso de que se cumpla dicha condición, separado por el símbolo `~`. Cada argemento se separa por una coma. 
+
+```{r}
+base_esa <- base_esa %>% 
+  mutate(hacinamiento = case_when(hacina_cociente < 2 ~ "Sin hacinamiento",
+                                 hacina_cociente >= 2 & hacina_cociente <= 3 ~ "Hacinamiento no crítico",
+                                 hacina_cociente > 3 ~ "Hacinamiento crítico"))
+```
+
+Este cálculo podría resumirse aún más, concatenando ambas operaciones dentro de la función `mutate()`.  
+
+```{r eval=FALSE}
+base_esa <- base_esa %>% 
+  mutate(hacina_cociente = MIEMBROS / M9.3,
+         hacinamiento = case_when(hacina_cociente < 2 ~ "Sin hacinamiento",
+                                 hacina_cociente >= 2 & hacina_cociente <= 3 ~ "Hacinamiento no crítico",
+                                 hacina_cociente > 3 ~ "Hacinamiento crítico")))
+```
+
+
+Si queremos observar los resultados de la tarea realizada, podemos hacerlo a través de la función `table()`.
+
+```{r}
+table(base_esa$hacinamiento)
+
+```
+
+Por último, debido a que es una variable categórica, podemos convertirla en factor con la función `factor()` como lo vimos anteriormente.   
+
+```{r}
+base_esa <- base_esa %>% 
+  mutate(hacinamiento = factor(hacinamiento, levels = c("Sin hacinamiento", "Hacinamiento no crítico", "Hacinamiento crítico")))
+```
+
+
+## Recodificación de variables
+
+El combo `mutate()` y `case_when()` también nos permite recodificar variables, es decir, cambiar los valores de una variable por otros o reducir su número de categorías. Es una práctica frecuente en el análisis de datos, ya que permite simplificar, posteriormente, la interpretación de los resultados.
+
+Por ejemplo, hay una variable en la encuesta que mide la autopercepción de clase (*M11.6*). Como hay muy pocos casos que se autoperciben como *clase alta*, vamos a unirlos a aquellos que se perciben *clase media-alta*.   
+
+```{r}
+#| echo: false
+#| caption: "Recodificación de la variable autopercepción de clase"
+
+library(knitr)
+library(kableExtra)
+
+tabla <- tibble(
+  `6 clases` = c(
+    "1. Clase alta",
+    "2. Clase media alta",
+    "3. Clase media",
+    "4. Clase media-baja",
+    "5. Clase trabajadora",
+    "6. Clase baja",
+    "99. Ns/Nc"
+  ),
+  `5 clases` = c(
+    "1. Clase media-alta",
+    "1. Clase media-alta",   # <- repetir
+    "2. Clase media",
+    "3. Clase media-baja",
+    "4. Clase trabajadora",
+    "5. Clase baja",
+    "NA"
+  )
+)
+
+tabla %>%
+  kable(align = c("l", "l"),
+        escape = FALSE) %>%
+  kable_styling(full_width = FALSE,
+                bootstrap_options = c("bordered")) %>%
+  collapse_rows(columns = 2, valign = "middle") %>%
+  row_spec(0, bold = TRUE, background = "#1f5d75", color = "white") %>%
+  column_spec(1, border_right = TRUE)
+```
+
+
+Vamos a ver cómo podemos realizar esta recategorización con la función `case_when()` y luego vamos a convertir la variable creada (*clase_recod*) en factor con sus etiquetas correspondientes.  
+
+
+```{r}
+base_esa <- base_esa %>% 
+  mutate(clase_recod = case_when(M11.6 == 1 ~ 1, 
+                                M11.6 == 2 ~ 1, 
+                                M11.6 == 3 ~ 2, 
+                                M11.6 == 4 ~ 3, 
+                                M11.6 == 5 ~ 4, 
+                                M11.6 == 6 ~ 5, 
+                                M11.6 == 99 ~ NA_real_)) 
+
+base_esa <- base_esa %>%
+  mutate(clase_recod = factor(clase_recod, 
+                              levels = c(1, 2, 3, 4, 5), 
+                              labels = c("Clase media-alta", "Clase media", "Clase media-baja", "Clase trabajadora", "Clase baja")))
+```
+
+
+::: {.callout-tip title="Atención"}
+El operador `%in%` también puede ser utilizado para identificar valores en un vector alfanumérico o de cadena. En ese caso debemos ingresar los valores a evaluar dentro de la función c(). Por ejemplo, `provincia %in% c("Buenos Aires", "Chaco", "Formosa")`.
+:::
+

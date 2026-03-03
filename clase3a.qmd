@@ -1,0 +1,194 @@
+---
+title: "Clase 3a - Preprocesamiento de datos I"
+subtitle: "Estructura y movilidad social: nuevas configuraciones suburbanas"
+author: 
+  - "Eduardo Chávez Molina"
+  - "María Clara Fernández Melian"
+  - "José Rodríguez de la Fuente"
+date: today
+date-format: "YYYY"
+format: 
+  html:
+    theme: zephyr
+    toc: true
+    toc-title: Contenido
+    number-sections: true
+    embed-resources: true
+    smooth-scroll: true
+    code-overflow: wrap
+    code-copy: hover
+    code-tools: false
+  pdf: 
+    toc: true
+    pdf-engine: xelatex
+    fig-format: png  
+    fig-dpi: 300     
+    fig-width: 8
+    fig-height: 5
+    highlight-style: espresso
+    include-in-header: 
+       text: |
+         \usepackage{fvextra}
+         \DefineVerbatimEnvironment{Highlighting}{Verbatim}{breaklines,commandchars=\\\{\}}
+         \DefineVerbatimEnvironment{OutputCode}{Verbatim}{breaklines,commandchars=\\\{\}}
+lang: es
+highlight-style: espresso
+lightbox: true
+cache: true
+execute:
+  warning: false
+  message: false
+---
+
+# Importación de datos
+
+## Librerías
+
+Para esta clase, necesitaremos tener instaladas las siguientes librerías:
+
+```{r eval=FALSE}
+install.packages("tidyverse")
+install.packages("haven")
+```
+
+
+## El formato *.csv* 
+
+La Encuesta Permanente de Hogares (**EPH**), desde la página del **INDEC** puede ser descargada, desde 2016, en formato *.txt* o *.xls*. Lo más recomendable es descargarla en *.txt*, ya que es similar al formato *.csv*. Dicho formato, *Comma Separated Values*, es uno de los más utilizados para almacenar datos tabulares: cada fila representa una observación y cada columna una variable. Los valores de las columnas están separados por comas (o punto y coma, dependiendo del idioma) y la primera fila suele contener los nombres de las variables. 
+
+Usando *R base*, podemos leer los datos a través de la función `read.csv()`. En este caso probaremos abrir la última base de la EPH disponible, descargándola del sitio web del INDEC. Es recomendable tener una carpeta de *fuentes* o *bases* en el proyecto de R para poder importar directamente la base y asignarla a un objeto.  
+
+```{r eval=FALSE}
+eph_ind_225 <- read.csv("fuentes/usu_individual_T225.txt", sep = ";")
+```
+
+Otra forma de cargar los datos es a través de la librería `readr`^[[*Machete*](https://rstudio.github.io/cheatsheets/translations/spanish/data-import_es.pdf){target="_blank"} del paquete `readr`]. Esta librería es parte del *tidyverse* y es una alternativa más rápida y eficiente para leer datos. Para cargar los datos con `readr`, primero llamamos a la librería *tidyverse* y luego usamos la función `read_delim()`.
+
+```{r}
+library(tidyverse)
+
+eph_ind_225 <- read_delim("fuentes/usu_individual_T225.txt", delim = ";")
+
+```
+
+Fijense que lo que le estamos indicando a `R` es que abra el archivo que se encuentra en la dirección `fuentes/usu_individual_T225.txt`, que se encuentra en la carpeta del proyecto, y que lo guarde en un objeto llamado **eph_ind_225**.
+
+Para comprobar que la operación se realizó con éxito debemos revisar el ambiente de trabajo (*environment*). En dicha ventana, se nos indica la cantidad de observaciones (`r  nrow(eph_ind_225)`) y variables (`r ncol(eph_ind_225)`) que tiene el objeto en cuestión. Si hacemos *click* en el mismo, accederemos a la base de datos completa.  
+
+::: {.callout-note title="Dato importante"}
+Muchas veces nos encontramos con que las bases de datos con información separada por comas o puntos y comas (;) no están en formato *.csv* sino en formato *.txt*, como es el caso de la Encuesta Permanente de Hogares del INDEC. En estos casos, podemos utilizar la misma función `read.csv()` o `read_csv()`, ya que ambas permiten especificar el separador de columnas a través del argumento `sep`. Por ejemplo, si el separador es punto y coma, podemos usar `read.csv("archivo.txt", sep = ";")` o `read_csv("archivo.txt", delim = ";")`.
+:::
+
+## El formato nativo: *.rds*
+
+Otra forma de guardar y cargar datos es a través del formato nativo de `R`: **.rds**. Para guardar un objeto en este formato, usamos la función `saveRDS()` y para cargarlo, usamos `readRDS()`.
+
+Ahora probaremos abrir una de las bases de datos de la encuesta del [**Latinobarómetro**](https://www.latinobarometro.org/latContents.jsp){target="_blank"} ya que desde su sitio web brindan sus datos en diversos formatos. Descarguemos el archivo del año 2023 en formato **.rds** y lo colocamos en la carpeta *bases*.  
+
+Nuevamente, para abrir este archivo debemos asignarselo a un objeto, en este caso lo llamaremos *latinobarometro*.
+
+```{r}
+latinobarometro <- readRDS("fuentes/Latinobarometro_2023_Esp_Rds_v1_0.rds")
+```
+
+Si bien esto dependerá de la memoria RAM de cada computadora, abrir un archivo en formato **.rds** suele ser considerablemente más rápido que abrir un archivo en formato **.csv**, sobre todo cuando tienen una gran cantidad de casos y de variables.
+
+Como podemos observar desde el ambiente de trabajo, la base de datos de personas tiene `r nrow(latinobarometro)` observaciones y `r ncol(latinobarometro)` variables.
+
+
+## El formato .sav
+
+Desde `R` también podemos abrir otros formatos comúnmente utilizados de forma sencilla. En este caso, la base de datos con la que trabajaremos en este seminario **Estructura social de Argentina y políticas públicas durante la pandemia de Covid-19** (ESAyPP/PISAC-COVID-19) se encuentra estructurada en el formato nativo de `SPSS`: *.sav*. Para importarla, podemos hacerlo a través de los paquetes `haven`.  
+
+Importaremos la base de respondentes, que cuenta con la información de cada hogar y de su referente/a.
+
+
+
+```{r}
+library(haven)
+base_esa <- read_sav("fuentes/base_esa_pisac.sav")
+
+```
+
+## Trayendo datos desde la web
+
+Otra de las potencialidades que ofrecen estas funciones es que permiten leer datos directamente desde alguna URL de la web. Por ejemplo, hagamos una prueba importando alguna base que se encuentre disponible en el [repositorio de datos abiertos de Argentina](https://datos.gob.ar/){target="_blank"}.
+
+Probemos con la Encuesta Nacional de Consumos Culturales de 2017. Para ello, utilizaremos la función `read_csv()` del paquete `readr` y le pasaremos como argumento la URL del archivo.
+
+```{r}
+cc2017 <- read_csv("https://datos.cultura.gob.ar/dataset/251c2ac2-e670-451c-9dbf-a4212af225b5/resource/171494ce-e3cf-43fb-ad6e-f204bae1bb19/download/encc_2017.csv")
+
+```
+
+```{r echo=FALSE}
+DT::datatable(cc2017)
+```
+
+
+# Elementos de la base datos
+
+## Clases de objetos
+
+Una vez importada la base, el siguiente paso que solemos dar es observar cómo está dispuesta la matriz de datos. En el caso de `RStudio`, a diferencia de **SPSS**, las bases de datos se mantienen ocultas en el ambiente de trabajo. Para visualizarlas, podemos hacer *click* en el objeto específico, o si queremos un resumen, podemos escribir el nombre del objeto en la consola o en el *script*. 
+
+```{r}
+base_esa
+```
+
+
+En el objeto *base_esa*, se puede observar la estructura tripartita del dato. En las filas se disponen las personas, en las columnas las variables y en las celdas los valores de las variables para cada persona. Estas tienen una identificación única conformada por la variable `CUEST`. Esto refleja que la información se encuentra ordenada, o como se suele decir, en un formato *tidy*. Como veremos a continuación, paquetes estrella como `dplyr`, `ggplot2` y el resto de los del `tidyverse` están diseñados para trabajar con datos ordenados. 
+
+Otra cuestión relevante es que las variables pueden ser de distintos tipos. Por ejemplo, algunas variables son numéricas, otras son categóricas y otras son de texto. Para saber qué tipo de variable es cada una, podemos usar la función `class()`. Por ejemplo, la variable `EDAD` es numérica. Mientras que la variable `M5.1` es cadena, ya que almacena números y letras.
+
+```{r}
+class(base_esa$EDAD)
+class(base_esa$M5.1)
+```
+
+::: {.callout-tip title="Atención"}
+En la línea de código escrita recién podemos ver que para señalar a una variable en una base de datos, en `R base`, se utiliza el símbolo *$*. Esto indica que estamos apuntando a una columna determinada del objeto especificado. El autocompletado es una gran ventaja cuando necesitamos identificar alguna columna.
+:::
+
+Al observar la clase del objeto `base_repondentes`, podemos ver que es un *data.frame*, específicamente en formato *tibble*. Este es el tipo de objeto que se utiliza en `R` para almacenar bases de datos de estructura tabular.
+
+```{r}
+class(base_esa)
+```
+
+## Los factores
+
+En `R`, las variables categóricas son conocidas como *factores* y tienen la particularidad de tener un conjunto conocido de valores posibles y sobre los cuales puede establecerse un orden. Su diferenciación, respecto a otros tipos de objetos como los *character* o *numeric*, radica en que algunos análisis estadísticos más avanzados requieren que las variables categóricas sean tratadas como factores.  
+
+Por ejemplo, la variable `M3.5`indica la categoría de ocupación que presenta el encuestado. Si bien la variable fue cargada como numérica, sabemos que, en realidad, es una variable categórica. Para convertirla en factor, usamos la función `factor()`, en donde, además, podemos declarar las distintas etiquetas (*labels*) que tienen las categorías. Para no sobreescribir la variable original, la guardamos en una nueva variable llamada `M3.5_f`.
+
+```{r}
+base_esa$M3.5_f <- factor(base_esa$M3.5,
+                               labels = c("Empleador",
+                                          "Cuenta propia",
+                                          "Trabajador familiar",
+                                          "Empleado",
+                                          "Servicio doméstico"))
+
+```
+
+Con la función `levels()` podemos ver los niveles que tiene la variable `M3.5_f`, es decir, como están ordenadas las categorías.
+
+```{r}
+levels(base_esa$M3.5_f)
+```
+
+
+::: {.callout-tip title="Atención"}
+Las variables de tipo *factor* son una de las principales diferencias existentes entre `R` y otros programas estadísticos como **SPSS** o  **Stata**. En estos las variables categóricas suelen tener un valor numérico y una etiqueta asociada a cada valor, en forma de *metadata*. En `R` debemos utilizar paquetes específicos como [`labelled`](https://larmarange.github.io/labelled/){target="_blank"} para poder trabajar de forma similar.
+:::
+
+Sin embargo, como nuestra base proviene desde `SPSS` y en su origen ya fueron guardadas las etiquetas de las categorías, podemos ir recuperándolas con la función `as_factor` de `haven`. Probemos con la misma variable M3.5.  
+
+```{r}
+base_esa$M3.5_f <- as_factor(base_esa$M3.5)
+```
+
+Fijense que ahora copió las etiquetas tal como venían cargadas en la base de datos.  
+
+
