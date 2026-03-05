@@ -9,6 +9,7 @@ date: today
 date-format: "YYYY"
 format: 
   html:
+    title-block-banner: true
     theme: zephyr
     toc: true
     toc-title: Contenido
