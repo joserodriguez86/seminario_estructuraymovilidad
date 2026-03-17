@@ -301,7 +301,7 @@ Sin embargo, los estratos pueden ordenarse de diversa forma. Desde la cátedra p
 
 ```{r}
 base_esa <- base_esa %>% 
-  mutate(clase_torrado2 = case_when(
+  mutate(clase_torrado = case_when(
     
     # 1) Clase directivo-profesional (cso_torrado 1 y 2)
     cso_torrado %in% c(1, 2) ~ 1,
@@ -321,7 +321,7 @@ base_esa <- base_esa %>%
     TRUE ~ NA_real_
     
   )) %>% 
-  mutate(clase_torrado2_f = factor(clase_torrado2,
+  mutate(clase_torrado_f = factor(clase_torrado,
                                 levels = 1:5,
                                 labels = c("Clase directivo-profesional",
                                            "Clase media rutinaria",
@@ -367,6 +367,14 @@ Si queremos ver como se distribuye la población según el ISEI:
 
 ```{r}
 table(base_esa$isei, useNA = "ifany")
+```
+
+# Guardado de la base de datos  
+
+Como vamos a utilizar la variable de clase social en las clases posteriores vamos a guardar la base de datos en un archivo `.RDS`.  
+
+```{r}
+saveRDS(base_esa, "fuentes/base_esa_pisac.rds")
 ```
 
 

@@ -1,0 +1,276 @@
+---
+title: "Clase 5 - Análisis de movilidad social"
+subtitle: "Estructura y movilidad social: nuevas configuraciones suburbanas"
+author: 
+  - "Eduardo Chávez Molina"
+  - "María Clara Fernández Melian"
+  - "José Rodríguez de la Fuente"
+date: today
+date-format: "YYYY"
+format: 
+  html:
+    title-block-banner: true
+    theme: zephyr
+    toc: true
+    toc-title: Contenido
+    number-sections: true
+    embed-resources: true
+    smooth-scroll: true
+    code-overflow: wrap
+    code-copy: hover
+    code-tools: false
+  pdf: 
+    toc: true
+    pdf-engine: xelatex
+    fig-format: png  
+    fig-dpi: 300     
+    fig-width: 8
+    fig-height: 5
+    highlight-style: espresso
+    include-in-header: 
+       text: |
+         \usepackage{fvextra}
+         \DefineVerbatimEnvironment{Highlighting}{Verbatim}{breaklines,commandchars=\\\{\}}
+         \DefineVerbatimEnvironment{OutputCode}{Verbatim}{breaklines,commandchars=\\\{\}}
+lang: es
+bibliography: references.bib
+highlight-style: espresso
+lightbox: true
+cache: false
+execute:
+  warning: false
+  message: false
+---
+
+# Análisis de movilidad absoluta  
+
+## Antes de comenzar  
+
+El análisis de movilidad social, tanto intergeneracional como intrageneracional, implica siempre la comparación de dos posiciones. En el primer caso, comparamos la posiciones de los hijos/as con los de sus padres / madres. En el segundo caso, la comparación es al interior del curso de vida de los encuestados, por ejemplo, entre el momento actual y el momento de entrada al mercado de trabajo.  
+
+Nosotros vamos a centrarnos en el análisis de movilidad intergeneracional, por lo que necesitaremos también clasificar a los origenes sociales, es decir, al principal sostén del hogar (PSH) cuando el encuestado tenía 16 años. Para ello, vamos a replicar el mismo script que utilizamos para construir el esquema de clases de Torrado, pero con las variables del PSH.  
+
+Abrimos la base de datos y la librería `tidyverse`.  
+
+```{r}
+library(tidyverse)
+
+base_esa <- readRDS("fuentes/base_esa_pisac.rds")
+```
+
+Clasificamos a los PSH con el mismo esquema de clases pero utilizando las variables del PSH.  
+
+```{r echo=FALSE}
+base_esa <- base_esa %>%
+  haven::zap_labels()
+
+```
+
+
+```{r}
+base_esa <- base_esa %>% 
+  mutate(cso_torrado_psh = case_when(
+    
+    # 1) Directores de empresas
+    CIUO_origen >= 1000 & CIUO_origen < 2000 &
+      M12.21 >= 2 ~ 1,
+    
+    # 2) Profesionales en función específica
+    (CIUO_origen >= 2000 & CIUO_origen < 3000) |
+      CIUO_origen == 110 |
+      CIUO_origen == 210 ~ 2,
+    
+    # 3) Propietarios de pequeñas empresas
+    CIUO_origen >= 3000 & CIUO_origen < 9000 &
+      M12.20 == 1 & 
+      M12.21 >= 2 ~ 3,
+    
+    # 4) Cuadros técnicos y asimilados
+    CIUO_origen >= 3000 & CIUO_origen < 4000 &
+      M12.20 >= 3 ~ 4,
+    
+    # 5) Pequeños productores autónomos
+    (CIUO_origen >= 1000 & CIUO_origen < 2000 & M12.21 == 1) |
+      (CIUO_origen >= 3000 & CIUO_origen < 9000 & M12.20 == 1 & M12.21 == 1) |
+      (CIUO_origen >= 3000 & CIUO_origen < 5200 & M12.20 == 2) |
+      (CIUO_origen >= 5220 & CIUO_origen < 6000 & M12.20 == 2) ~ 5,
+    
+    # 6) Empleados administrativos y vendedores
+    (CIUO_origen >= 4000 & CIUO_origen < 5200 & M12.20 >= 3) |
+      (CIUO_origen >= 5220 & CIUO_origen < 6000 & M12.20 >= 3) ~ 6,
+    
+    # 7) Trabajadores especializados autónomos
+    CIUO_origen >= 6000 & CIUO_origen < 9000 &
+      M12.20 == 2 ~ 7,
+    
+    # 8) Obreros calificados
+    CIUO_origen >= 6000 & CIUO_origen < 9000 &
+      M12.20 >= 3 ~ 8,
+    
+    # 9) Obreros no calificados
+    (CIUO_origen > 9111 & CIUO_origen < 9999 & M12.20 >= 3) |
+      (CIUO_origen >= 5200 & CIUO_origen < 5220 & M12.20 >= 3) |
+      CIUO_origen == 310 ~ 9,
+    
+    # 10) Peones autónomos
+    (CIUO_origen > 9111 & CIUO_origen < 9999 & M12.20 < 3) |
+      (CIUO_origen >= 5200 & CIUO_origen < 5220 & M12.20 < 3) ~ 10,
+    
+    # 11) Empleados domésticos
+    CIUO_origen == 9111 ~ 11
+    
+  )) 
+
+
+base_esa <- base_esa %>% 
+  mutate(clase_torrado_psh = case_when(
+    
+    # 1) Clase directivo-profesional (cso_torrado 1 y 2)
+    cso_torrado_psh %in% c(1, 2) ~ 1,
+    
+    # 2) Clase media rutinaria (cso_torrado 4 y 6)
+    cso_torrado_psh %in% c(4, 6) ~ 2,
+    
+    # 3) Pequeña burguesía (cso_torrado 3 y 5)
+    cso_torrado_psh %in% c(3, 5) ~ 3,
+    
+    # 4) Clase obrera calificada (cso_torrado 7 y 8)
+    cso_torrado_psh %in% c(7, 8) ~ 4,
+    
+    # 5) Clase obrera no calificada (cso_torrado 9, 10 y 11)
+    cso_torrado_psh %in% c(9, 10, 11) ~ 5,
+    
+    TRUE ~ NA_real_
+    
+  )) %>% 
+  mutate(clase_torrado_psh_f = factor(clase_torrado_psh,
+                                levels = 1:5,
+                                labels = c("Clase directivo-profesional",
+                                           "Clase media rutinaria",
+                                           "Pequeña burguesía",
+                                           "Clase obrera calificada",
+                                           "Clase obrera no calificada")))
+```
+
+
+## Construyendo la tabla de movilidad  
+
+Hay muchas formas en `R` de construir tablas de contingencia, pero vamos a comenzar utilizando las herramientas que nos brinda `R base` y luego `tidyverse`. Cada una tiene sus ventajas y sus desventajas.  
+
+La función `table()` nos permite fácilmente realizar una cruce de variables. Si al resultado que nos brinda le aplicamos la función `prop.table()` podemos obtener las proporciones. La salida que nos brinda no es la más adecuada para su exportación o presentación en otros formato, pero es relativamente rápida para explorar los datos.  
+
+```{r}
+tabla <- table(base_esa$clase_torrado_psh_f, base_esa$clase_torrado_f)
+
+tabla
+
+tabla_prop <- prop.table(tabla, margin = 1) # Proporciones por fila
+tabla_prop
+
+tabla_prop <- prop.table(tabla, margin = 2) # Proporciones por columna
+tabla_prop
+```
+Como podemos ver esta función tiene la limitación de que no trabaja con ponderadores (necesarios cuando utilizamos nuestra base) y su salida no es muy manipulable para su exportación.  
+
+Otra forma de construir tablas de contingencia es utilizando la función `count()` del paquete `dplyr`. Esta función nos permite contar el número de casos para cada combinación de variables y utilizar el ponderador. Además, al ser funciones del `tidyverse`, podemos utilizar el *pipe* e ir concatenando instrucciones. Por ejemplo, vamos a hacer la tabla pero solo contabilizando a las personas que están ocupadas y desocupadas (M2.12) que son para las que tenemos información ocupacional y a las que tengan información válida, es decir, que no sean *NA*. El ponderador que utilizaremos será *POND2R_FIN_n*. Probemos...  
+
+```{r}
+base_esa %>% 
+  filter(M2.12 <= 2) %>% 
+  count(clase_torrado_psh_f, clase_torrado_f, wt = POND2R_FIN_n) %>% 
+  na.omit() # Eliminar filas con NA
+  
+```
+
+Como verán, la tabla se nos presenta en un formato extraño, que se denomina *long* o largo, debido a que las dos variables de interés se sitúan en las primeras columnas y las frecuencias en la última. En algunos casos, como por ejemplo para la construcción de gráficos, este formato es apropiado. Pero para la presentación de tablas, necesitamos un formato de tipo *wide* o ancho.
+
+Para presentar la tabla en un formato más amigable, utilizaremos la función `pivot_wider`. Lo que debemos declarar en dicha función es cual es la variable que pasará a mostrar sus categorías en las columnas y de dónde surgirán los valores que irán en las celdas. En nuestro caso, las columnas se completarán con las categorías de la variable de destino y los valores serán las frecuencias de los conteos de la columna *n* que construimos en el paso anterior.  
+
+```{r}
+base_esa %>% 
+  filter(M2.12 <= 2) %>% 
+  count(clase_torrado_psh_f, clase_torrado_f, wt = POND2R_FIN_n) %>%
+  na.omit() %>%
+  pivot_wider(names_from = clase_torrado_f, values_from = n)
+```
+
+La tabla se presenta de forma más ordenada y clara, sin embargo, aún no hemos calculado las proporciones. Para ello, la librería [`janitor`](https://sfirke.github.io/janitor/index.html){target="_blank"} automáticamente nos calculará distintos tipos de proporciones, nos presentará los datos en formato porcentual y nos dejará agregar los totales por fila o columna. Exploremos la librería.
+
+```{r eval=FALSE}
+install.packages("janitor")
+
+```
+
+```{r}
+library(janitor)
+
+base_esa %>% 
+  filter(M2.12 <= 2) %>% 
+  count(clase_torrado_psh_f, clase_torrado_f, wt = POND2R_FIN_n) %>%
+  na.omit() %>%
+  pivot_wider(names_from = clase_torrado_f, values_from = n) %>% 
+  adorn_totals("row") %>% # totales de fila
+  adorn_percentages("row") %>% # proporciones por fila
+  adorn_pct_formatting() # formato porcentual
+  
+
+```
+
+Lo mismo podemos hacer para calcular los porcentajes por columna.  
+
+```{r}
+base_esa %>% 
+  filter(M2.12 <= 2) %>% 
+  count(clase_torrado_psh_f, clase_torrado_f, wt = POND2R_FIN_n) %>%
+  na.omit() %>%
+  pivot_wider(names_from = clase_torrado_f, values_from = n) %>% 
+  adorn_totals("col") %>% # totales de fila
+  adorn_percentages("col") %>% # proporciones por fila
+  adorn_pct_formatting(affix_sign = FALSE) # formato porcentual sin símbolo
+```
+
+## Librerías para visualizar tablas de contingencia  
+
+Existen diferentes librerías elaboradas por usuarios para construir tablas de contingencia. Por ejemplo, recomendamos que revisen las librerías `sumarytools` o `sjmisc`. Estás librerías permiten realizar tablas rápidamente y utilizar ponderación.  
+
+Les dejamos dos ejemplos de como utilizarla:  
+
+```{r eval=FALSE}
+install.packages("summarytools")
+install.packages("sjmisc")
+
+```
+
+```{r}
+library(summarytools)
+
+ctable(base_esa$clase_torrado_psh_f, base_esa$clase_torrado_f, weights = base_esa$POND2R_FIN_n, useNA = "no")
+```
+
+```{r}
+library(sjmisc)
+
+base_esa %>% 
+  filter(M2.12 <= 2) %>% 
+  flat_table(clase_torrado_psh_f, clase_torrado_f, weights = POND2R_FIN_n)
+```
+Por último, la librería `flextable`, también permite la presentación de una tabla de contingencia en mejor formato, puediéndose encadenar a las diferentes instrucciones generadas con las funciones de `tidyverse`.  
+
+```{r eval=FALSE}
+install.packages("flextable")
+```
+
+```{r}
+library(flextable)
+
+base_esa %>% 
+  filter(M2.12 <= 2) %>% 
+  count(clase_torrado_psh_f, clase_torrado_f, wt = POND2R_FIN_n) %>%
+  na.omit() %>%
+  pivot_wider(names_from = clase_torrado_f, values_from = n) %>% 
+  adorn_totals("row") %>% # totales de fila
+  adorn_percentages("row") %>% # proporciones por fila
+  adorn_pct_formatting() %>% # formato porcentual
+  flextable()
+
+```
