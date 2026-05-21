@@ -278,26 +278,26 @@ base_esa %>%
 
 ## Exportando la tabla a Excel  
 
-Para calcular los principales índices de movilidad social, necesitaremos exportar la *tabla de movilidad* con sus valores absolutos a un archivo de Excel. Para ello, utilizaremos la función `write.xlsx()` del paquete `xlsx`. Vamos primero a guardar la tabla en un objeto para luego exportarlo.  
+Para calcular los principales índices de movilidad social, necesitaremos exportar la *tabla de movilidad* con sus valores absolutos a un archivo de Excel. Para ello, utilizaremos la función `write.xlsx()` del paquete `openxlsx`. Vamos primero a guardar la tabla en un objeto para luego exportarlo.  
 
 ```{r eval=FALSE}
-install.packages("xlsx")
+install.packages("openxlsx")
 
 ```
 
 
 ```{r}
-library(xlsx)
+library(openxlsx)
 
 tabla <- base_esa %>% 
   filter(M2.12 <= 2) %>% 
   count(clase_torrado_psh_f, clase_torrado_f, wt = POND2R_FIN_n) %>%
   na.omit() %>%
   pivot_wider(names_from = clase_torrado_f, values_from = n) %>% 
-  adorn_rounding(digits = 0) # redondear a números enteros
-  
+  adorn_rounding(digits = 0) %>%  # redondear a números enteros
+  adorn_totals(where = c("row", "col")) # agregar totales por fila y columna
 
-write.xlsx(tabla, "salidas/tabla.xlsx", sheetName = "Frecuencias absolutas")
+write.xlsx(tabla, "salidas/tabla_movilidad_absoluta.xlsx")
 
 ```
 
@@ -320,9 +320,9 @@ f_esperadas <- base_esa %>%
   pivot_wider(names_from = clase_torrado_f, values_from = n) %>%
   tibble::column_to_rownames("clase_torrado_psh_f") %>% 
   as.matrix() %>%
-  ExpFreq()
+  ExpFreq() 
 
-write.xlsx(f_esperadas, "salidas/tabla.xlsx", sheetName = "Frecuencias esperadas", append = TRUE)
+write.xlsx(f_esperadas, "salidas/tabla_frecuencias_esperadas.xlsx")
 
 ```
 
