@@ -31,7 +31,7 @@ Acceso directo a los contenidos de cada clase:
 | 3b | Preprocesamiento de datos III | [📖 Abrir](https://joserodriguez86.github.io/seminario_estructuraymovilidad/clase3c.html) |
 | 4 | Ejemplo de operacionalización de clases sociales | [📖 Abrir](https://joserodriguez86.github.io/seminario_estructuraymovilidad/clase4.html) | 
 | 5 | Análisis de movilidad social | [📖 Abrir](https://joserodriguez86.github.io/seminario_estructuraymovilidad/clase5.html) |
-
+| 6 | Déficit habitacional y clase con PISAC-COVID | [📖 Abrir](https://joserodriguez86.github.io/seminario_estructuraymovilidad/clase_deficit_vivienda.html) |
 
 ---
 
