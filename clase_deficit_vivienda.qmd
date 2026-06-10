@@ -541,11 +541,11 @@ base_esa <- base_esa %>%
   )) %>% 
   mutate(clase_torrado_PSH_f = factor(clase_torrado_PSH,
                                 levels = 1:5,
-                                labels = c("Directiva-\nprofesional",
-                                             "Media\nrutinaria",
-                                             "Pequeña\nburguesía",
-                                             "Obrera\ncalificada",
-                                             "Obrera\nnocalificada")))
+                                labels = c("Directiva-profesional",
+                                             "Media rutinaria",
+                                             "Pequeña burguesía",
+                                             "Obrera calificada",
+                                             "Obrera no calificada")))
 ```
 
 ## Unir las bases de hogar y componentes
@@ -629,36 +629,44 @@ base_hogares <- base_hogares %>%
 # a. Tabla de Calidad de vivienda y Clase
 
 tabla_calviv_cso_pond <- xtabs(
-  POND2R_FIN_n ~ cal_viv + clase_torrado_PSH_f,
+  POND1R_FIN ~ cal_viv + clase_torrado_PSH_f,
   data = base_hogares
 )
+
+tabla_calviv_cso_pond <- round(tabla_calviv_cso_pond, 0)
 
 tabla_calviv_cso_pond
 
 # b. Tabla de Calidad de servicios y Clase
 
 tabla_cal_serv_cso_pond <- xtabs(
-  POND2R_FIN_n ~ cal_serv + clase_torrado_PSH_f,
+  POND1R_FIN ~ cal_serv + clase_torrado_PSH_f,
   data = base_hogares
 )
+
+tabla_cal_serv_cso_pond <- round(tabla_cal_serv_cso_pond, 0)
 
 tabla_cal_serv_cso_pond
 
 # c. Tabla de Hacinamiento y Clase
 
 tabla_hacina_cso_pond <- xtabs(
-  POND2R_FIN_n ~ hacina + clase_torrado_PSH_f,
+  POND1R_FIN ~ hacina + clase_torrado_PSH_f,
   data = base_hogares
 )
+
+tabla_hacina_cso_pond <- round(tabla_hacina_cso_pond, 0)
 
 tabla_hacina_cso_pond
 
 # d. Tabla de Allegamiento y Clase
 
 tabla_allega_cso_pond <- xtabs(
-  POND2R_FIN_n ~ allega + clase_torrado_PSH_f,
+  POND1R_FIN ~ allega + clase_torrado_PSH_f,
   data = base_hogares
 )
+
+tabla_allega_cso_pond <- round(tabla_allega_cso_pond, 0)
 
 tabla_allega_cso_pond
 
@@ -672,13 +680,19 @@ write.xlsx(
 
 write.xlsx(
   tabla_hacina_cso_pond,
-  file = "salidas/tabla_calviv_cso_pond.xlsx",
+  file = "salidas/tabla_hacina_cso_pond.xlsx",
   overwrite = TRUE
 )
 
 write.xlsx(
   tabla_allega_cso_pond,
   file = "salidas/tabla_allega_cso_pond.xlsx",
+  overwrite = TRUE
+)
+
+write.xlsx(
+  tabla_cal_serv_cso_pond,
+  file = "salidas/tabla_cal_serv_cso_pond.xlsx",
   overwrite = TRUE
 )
 ```
@@ -690,17 +704,26 @@ write.xlsx(
 # Tabla para el gráfico: porcentaje de calidad de vivienda por clase
 
 tabla_grafico_cal_viv <- base_hogares %>% 
-  filter(!is.na(cal_viv) & !is.na(clase_torrado_PSH_f)) %>% 
-  group_by(clase_torrado_PSH_f, cal_viv) %>% 
+  filter(!is.na(cal_viv) & !is.na(clase_torrado_PSH)) %>% 
+  group_by(clase_torrado_PSH, cal_viv) %>% 
   summarise(
-    total = sum(POND2R_FIN_n, na.rm = TRUE),
+    total = sum(POND1R_FIN, na.rm = TRUE),
     .groups = "drop"
   ) %>% 
-  group_by(clase_torrado_PSH_f) %>% 
+  group_by(clase_torrado_PSH) %>% 
   mutate(
     porcentaje = total / sum(total) * 100
   )
 
+# Ajustamos etiquetas en dos reglones
+tabla_grafico_cal_viv <- tabla_grafico_cal_viv %>% 
+mutate(clase_torrado_PSH_f = factor(clase_torrado_PSH,
+                    levels = 1:5,
+                    labels = c("Directiva-\nprofesional",
+                               "Media\nrutinaria",
+                               "Pequeña\nburguesía",
+                               "Obrera\ncalificada",
+                               "Obrera\nnocalificada")))
 
 # Gráfico de barras porcentuales
 
