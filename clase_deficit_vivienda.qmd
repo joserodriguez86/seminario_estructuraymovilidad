@@ -1,5 +1,5 @@
 ---
-title: "Clase 6: déficit habitacional y clase con PISAC-COVID"
+title: "Clase práctica: déficit habitacional y clase con Encuesta “Estructura social de Argentina y políticas públicas en tiempos del COVID-19” (PISAC-COVID)"
 subtitle: "Estructura y movilidad social: nuevas configuraciones suburbanas"
 author: 
   - "Eduardo Chávez Molina"
@@ -41,11 +41,11 @@ execute:
   message: false
 ---
 
-## Objetivo de la clase
+# Objetivo de la clase
 
-Construir, con la base PISAC-COVID, indicadores de **déficit habitacional** para analizar diferenciales entre las **clases sociales**.
+Construir indicadores de déficit habitacional a partir de la Encuesta “Estructura social de Argentina y políticas públicas en tiempos del COVID-19” (PISAC-COVID), con el propósito de analizar sus diferencias según clase social.
 
-**Bibliografia de consulta**
+## Bibliografia de consulta
 
 CEPAL (1996) <https://repositorio.cepal.org/entities/publication/255dcf28-902c-4008-b498-4302fb648162>
 
@@ -53,32 +53,49 @@ Arriagada Luco (2003) <https://repositorio.cepal.org/entities/publication/58df5c
 
 Marcos et al (2018) <https://ri.conicet.gov.ar/handle/11336/176835>
 
+Di Virgilio y Rodríguez (2018) <https://ri.conicet.gov.ar/handle/11336/177838>
+
 Marcos et al (2022) <https://www.scielo.br/j/rbepop/a/CLjPSH4mNbm3PQ6BrmVNVkh/?format=html&lang=es>
 
-## Déficit habitacional: consideraciones generales
-### Tipos de déficit
+# Deficit habitacional: definiciones
 
-![](imagenes/deficit.jpeg)
+## Tipos de deficit
 
-A1 + B1 + B2 + B3: Calidad de la vivienda \| A2 + A3: Allegamiento
+![](imagenes/deficit.jpg)
 
-### Indice de materialidad de la vivienda
+## Índice de materialidad de la vivienda
 
 ![](imagenes/indice_materialidad.jpg)
 
-### Indice de servicios de la vivienda
+## Índice de servicios de la vivienda
 
 ![](imagenes/indice_servicios.jpg)
 
-### Hacinamiento y tipología final
+## Hacinamiento y Tipología final de calidad de la vivienda
 
 ![](imagenes/hacina_indice_gral.jpg)
 
+## Allegamiento
+
+![](imagenes/allegamiento.jpg)
+
+### Definiciones
+
+**Hogar**: persona o grupo de personas que comparten gastos de alimentación).
+
+**Núcleo conyugal**: a) pareja sin hijos, b) pareja con hijos o c) padre o madre con hijos.
+
+Núcleo **primario**: nucleo conyugal que incluye al principal sostén del hogar (PSH).
+
+Núcleo **secundario**: nucleo conyugal que no incluye a la PSH.
+
+# Cálculo de indicadores
+
 ## Librerias y base
 
-```{r setup}
+```{r}
 
-# Instalar una sola vez los paquetes, luego solo se los llama cada vez que se ejecuta el programa:
+# Instalar los paquetes una sola vez, luego solo se los llama cada vez que se ejecuta el programa
 # install.packages(c("tidyverse", "haven", "openxlsx", "ggplot2", "data.table"))
 
 library(tidyverse)  
@@ -86,10 +103,36 @@ library(haven)
 library(openxlsx)    
 library(ggplot2)
 library(data.table) 
+library(writexl)
 
-
+# Abrir la base de hogares
 base_esa <- readRDS("fuentes/base_esa_pisac.rds")
 
+# Abrir la base de componentes
+base_componentes <- read_sav("fuentes/Base componentes.sav", encoding = "latin1")
+
+```
+
+## Diccionario de base
+
+```{r}
+
+# Con este bloque vamos a armar un excel que tenga una columna con el nombre de las variables y otra con la etiqueta. Sirve para buscar las variables que necesitemos.
+
+diccionario_base_esa <- tibble(
+                        #crea tabla
+  variable = names(base_esa),
+  #primera columna nombres de variables
+  etiqueta = map_chr(base_esa, ~ paste(attr(.x, "label"), collapse = " | "))
+)
+  #recorre cada columna de la base, extrae etiqueta y colapsa todas las etiquetas que tenga en una sola columna
+
+
+write_xlsx(
+  diccionario_base_esa,
+  "salidas/diccionario_base_esa.xlsx"
+)
+#guardamos diccionario
 ```
 
 ## Calidad de la vivienda: Indice de materialidad
@@ -193,17 +236,101 @@ tabla_cal_viv_99
 ```
 
 ## Calidad de la vivienda: Indice de servicios
+
 ```{r}
 
+# 1. Crear indicadores de calidad de servicios de la vivienda
 
+base_esa <- base_esa %>% 
+  mutate(
+    # Calidad del agua
+    # Variable original: M9.9
+    # Pregunta: procedencia del agua
+    #
+    # 1      = aceptable
+    # 2 a 6  = recuperable
+    # 99     = Ns/Nc
+    
+    cal_agua = case_when(
+      M9.9 == 1     ~ 1,
+      M9.9 %in% 2:6 ~ 2,
+      M9.9 == 99    ~ 99,
+      TRUE          ~ NA_real_
+    ),
+    
+    # Calidad del servicio sanitario
+    # Variable original: M9.10
+    # Pregunta: baño con inodoro o letrina
+    #
+    # 1      = aceptable
+    # 2 a 4  = recuperable
+    # 99     = Ns/Nc
+    cal_sanit = case_when(
+      M9.10 == 1      ~ 1,
+      M9.10 %in% 2:4  ~ 2,
+      M1.6 == 99      ~ 99,
+      TRUE            ~ NA_real_
+    ),
+    
+    # Calidad general de servicios
+    #
+    # Regla:
+    # - Si no se puede clasificar por falta de información, se conserva 99.
+    # - Si todos los componentes son aceptables, la vivienda es aceptable.
+    # - Si un componente es recuperable y otro aceptable, se asigna recuperable.
+
+    cal_serv = case_when(
+      cal_agua == 99 | cal_sanit == 99 ~ 99,
+      cal_agua == 1 & cal_sanit == 1 ~ 1,
+      (cal_agua == 2 & cal_sanit == 1) | (cal_agua == 1 & cal_sanit == 2)~ 2,
+      TRUE ~ NA_real_
+    )
+  )
+
+# 2. Cruces de control 
+
+tabla_cal_serv_1 <- base_esa %>% 
+  filter(cal_serv == 1) %>% 
+  count(cal_agua, cal_sanit)
+
+tabla_cal_serv_1
+
+tabla_cal_serv_2 <- base_esa %>% 
+  filter(cal_serv == 2) %>% 
+  count(cal_agua, cal_sanit)
+
+tabla_cal_serv_2
+
+tabla_cal_serv_99 <- base_esa %>% 
+  filter(cal_serv == 99) %>% 
+  count(cal_agua, cal_sanit)
+
+tabla_cal_serv_99
 ```
 
-## Calidad general de la vivienda
+## Hacinamiento
+
 ```{r}
 
+base_esa <- base_esa %>% 
+  mutate(
+    miembros_cuartos = MIEMBROS / M9.4,
+    
+    hacina = case_when(
+      miembros_cuartos < 2.5 ~ 1,
+      miembros_cuartos >= 2.5 & miembros_cuartos <= 5 ~ 2,
+      miembros_cuartos > 5 ~ 3,
+    ))
+    
+# Tablas de control 
+
+tabla_hacina1 <- base_esa %>% 
+  count(miembros_cuartos,MIEMBROS,M9.4)
+
+tabla_hacina2 <- base_esa %>% 
+  count(miembros_cuartos,hacina)
 
 ```
-
 
 ## Allegamiento
 
@@ -215,14 +342,12 @@ tabla_cal_viv_99
 
 
 # 2. Allegamiento interno
-# a. Abrir la base de componentes para recuperar los parentescos en cada hogar (jefe, hijo, conyuge, nuera, etc.)
-
-base_componentes <- read_sav("fuentes/Base componentes.sav", 
-                             encoding = "latin1")
+# a. Tomar la base de componentes para recuperar los parentescos en cada hogar (jefe, hijo, conyuge, nuera, etc.)
 
 # b. Contar cantidad de personas segun relacion o parentesco
+# Para eso debo agrupar la base por hogares (mismo CUEST)
 
-base_hogares <- base_componentes %>%
+base_componentes_agre <- base_componentes %>%
   group_by(CUEST) %>%
   summarise(
     
@@ -250,7 +375,7 @@ base_hogares <- base_componentes %>%
 
 # c. Contar cantidad de nucleos secundarios
 
-base_hogares <- base_hogares %>%
+base_componentes_agre <- base_componentes_agre %>%
   mutate(
     
     # Núcleos formados por hijos/as mayores de 17 años con nietos/as
@@ -285,7 +410,7 @@ base_hogares <- base_hogares %>%
 
 # d. Sumar los nucleos secundarios por hogar
 
-base_hogares <- base_hogares %>%
+base_componentes_agre <- base_componentes_agre %>%
   mutate(
     tot_nuc_sec =
       yerno_nuera +
@@ -297,7 +422,7 @@ base_hogares <- base_hogares %>%
 
 # e. Construimos variable de allegamiento
 
-base_hogares <- base_hogares %>%
+base_componentes_agre <- base_componentes_agre %>%
   mutate(
     allega = case_when(
       tot_nuc_sec >= 1 ~ 2,
@@ -306,31 +431,156 @@ base_hogares <- base_hogares %>%
   )
 ```
 
-## Unir Calidad y Allegamiento en una misma base
+## Clase del PSH
+
+### Estratos
+
+```{r}
+
+base_esa <- base_esa %>% 
+  mutate(cso_torrado_PSH = case_when(
+    
+    # 1) Directores de empresas
+    CIUO_PSH >= 1000 & CIUO_PSH < 2000 &
+      M3.6 >= 3 ~ 1,
+    
+    # 2) Profesionales en función específica
+    (CIUO_PSH >= 2000 & CIUO_PSH < 3000) |
+      CIUO_PSH == 110 |
+      CIUO_PSH == 210 ~ 2,
+    
+    # 3) Propietarios de pequeñas empresas
+    CIUO_PSH >= 3000 & CIUO_PSH < 9000 &
+      M3.5 == 1 & 
+      M3.6 >= 3 ~ 3,
+    
+    # 4) Cuadros técnicos y asimilados
+    CIUO_PSH >= 3000 & CIUO_PSH < 4000 &
+      M3.5 >= 3 ~ 4,
+    
+    # 5) Pequeños productores autónomos
+    (CIUO_PSH >= 1000 & CIUO_PSH < 2000 & M3.6 <= 2) |
+      (CIUO_PSH >= 3000 & CIUO_PSH < 9000 & M3.5 == 1 & M3.6 <= 2) |
+      (CIUO_PSH >= 3000 & CIUO_PSH < 5200 & M3.5 == 2) |
+      (CIUO_PSH >= 5220 & CIUO_PSH < 6000 & M3.5 == 2) ~ 5,
+    
+    # 6) Empleados administrativos y vendedores
+    (CIUO_PSH >= 4000 & CIUO_PSH < 5200 & M3.5 >= 3) |
+      (CIUO_PSH >= 5220 & CIUO_PSH < 6000 & M3.5 >= 3) ~ 6,
+    
+    # 7) Trabajadores especializados autónomos
+    CIUO_PSH >= 6000 & CIUO_PSH < 9000 &
+      M3.5 == 2 ~ 7,
+    
+    # 8) Obreros calificados
+    CIUO_PSH >= 6000 & CIUO_PSH < 9000 &
+      M3.5 >= 3 ~ 8,
+    
+    # 9) Obreros no calificados
+    (CIUO_PSH > 9111 & CIUO_PSH < 9999 & M3.5 >= 3) |
+      (CIUO_PSH >= 5200 & CIUO_PSH < 5220 & M3.5 >= 3) |
+      CIUO_PSH == 310 ~ 9,
+    
+    # 10) Peones autónomos
+    (CIUO_PSH > 9111 & CIUO_PSH < 9999 & M3.5 < 3) |
+      (CIUO_PSH >= 5200 & CIUO_PSH < 5220 & M3.5 < 3) ~ 10,
+    
+    # 11) Empleados domésticos
+    CIUO_PSH == 9111 ~ 11
+    
+  ))
+
+```
+
+### Convertir la variable **cso_torrado** en un factor con etiquetas
+
+```{r}
+
+base_esa <- base_esa %>% 
+  mutate(
+    cso_torrado_PSH_f = 
+      factor(cso_torrado_PSH, 
+                levels = 1:11, 
+                labels = c("Directores de empresas",
+                           "Profesionales en función específica",
+                           "Propietarios de pequeñas empresas",
+                           "Cuadros técnicos y asimilados",
+                           "Pequeños productores autónomos",
+                           "Empleados administrativos y comerciantes",
+                           "Trabajadores especializados autónomos",
+                           "Obreros calificados",
+                           "Obreros no calificados",
+                           "Peones autónomos",
+                           "Empleados domésticos")))
+```
+
+### Propuesta de recodificación
+
+```{r}
+
+base_esa <- base_esa %>% 
+  mutate(clase_torrado_PSH = case_when(
+    
+    # 1) Clase directivo-profesional (cso_torrado 1 y 2)
+    cso_torrado_PSH %in% c(1, 2) ~ 1,
+    
+    # 2) Clase media rutinaria (cso_torrado 4 y 6)
+    cso_torrado_PSH %in% c(4, 6) ~ 2,
+    
+    # 3) Pequeña burguesía (cso_torrado 3 y 5)
+    cso_torrado_PSH %in% c(3, 5) ~ 3,
+    
+    # 4) Clase obrera calificada (cso_torrado 7 y 8)
+    cso_torrado_PSH %in% c(7, 8) ~ 4,
+    
+    # 5) Clase obrera no calificada (cso_torrado 9, 10 y 11)
+    cso_torrado_PSH %in% c(9, 10, 11) ~ 5,
+    
+    TRUE ~ NA_real_
+    
+  )) %>% 
+  mutate(clase_torrado_PSH_f = factor(clase_torrado_PSH,
+                                levels = 1:5,
+                                labels = c("Directiva-\nprofesional",
+                                             "Media\nrutinaria",
+                                             "Pequeña\nburguesía",
+                                             "Obrera\ncalificada",
+                                             "Obrera\nnocalificada")))
+```
+
+## Unir las bases de hogar y componentes
 
 ```{r}
 
 # 1. Seleccionar las variables de interés: Calidad de la vivienda, Clase del Jefe y Ponderadores
 
-base_esa_s <- base_esa %>%
+base_esa_sel <- base_esa %>%
   select(
     CUEST,
     cal_tech,
     cal_pi,
     cal_pa,
     cal_viv,
-    cso_torrado,
-    clase_torrado,
-    clase_torrado_f,
+    cal_serv,
+    hacina,
+    cso_torrado_PSH,
+    clase_torrado_PSH,
+    clase_torrado_PSH_f,
     POND2R_FIN_n,
     POND2R_FIN,
     POND1R_FIN_n,
     POND1R_FIN
   )
 
+base_componentes_agre_sel <- base_componentes_agre %>% 
+  select(
+    CUEST,
+    tot_nuc_sec,
+    allega)
+
 # 2. Unir las bases
-base_hogares <- base_hogares %>%
-  left_join(base_esa_s, by = "CUEST")
+base_hogares <- base_esa_sel %>%
+  left_join(base_componentes_agre_sel, by = "CUEST")
 
 #left_join() mantiene todos los casos de la primera base ("base_hogares") y le agrega las variables de la segunda base ("base_esa_s"), usando una variable común para unirlas (CUEST).
 
@@ -355,6 +605,20 @@ base_hogares <- base_hogares %>%
                                              "recuperable",
                                              "irrecuperable",
                                              "sin información")))
+
+base_hogares <- base_hogares %>% 
+  mutate(cal_serv = factor(cal_serv,
+                          levels =  1:3,
+                          labels = c("aceptable",
+                                     "recuperable",
+                                     "sin información")))
+
+base_hogares <- base_hogares %>% 
+  mutate(hacina = factor(hacina,
+                           levels =  1:3,
+                           labels = c("aceptable",
+                                      "recuperable",
+                                      "deficitario")))
                          
 # 2. Tablas
 
@@ -365,16 +629,34 @@ base_hogares <- base_hogares %>%
 # a. Tabla de Calidad de vivienda y Clase
 
 tabla_calviv_cso_pond <- xtabs(
-  POND2R_FIN_n ~ cal_viv + clase_torrado_f,
+  POND2R_FIN_n ~ cal_viv + clase_torrado_PSH_f,
   data = base_hogares
 )
 
 tabla_calviv_cso_pond
 
-# Tb. abla de Allegamiento y Clase
+# b. Tabla de Calidad de servicios y Clase
+
+tabla_cal_serv_cso_pond <- xtabs(
+  POND2R_FIN_n ~ cal_serv + clase_torrado_PSH_f,
+  data = base_hogares
+)
+
+tabla_cal_serv_cso_pond
+
+# c. Tabla de Hacinamiento y Clase
+
+tabla_hacina_cso_pond <- xtabs(
+  POND2R_FIN_n ~ hacina + clase_torrado_PSH_f,
+  data = base_hogares
+)
+
+tabla_hacina_cso_pond
+
+# d. Tabla de Allegamiento y Clase
 
 tabla_allega_cso_pond <- xtabs(
-  POND2R_FIN_n ~ allega + clase_torrado_f,
+  POND2R_FIN_n ~ allega + clase_torrado_PSH_f,
   data = base_hogares
 )
 
@@ -384,6 +666,12 @@ tabla_allega_cso_pond
 
 write.xlsx(
   tabla_calviv_cso_pond,
+  file = "salidas/tabla_calviv_cso_pond.xlsx",
+  overwrite = TRUE
+)
+
+write.xlsx(
+  tabla_hacina_cso_pond,
   file = "salidas/tabla_calviv_cso_pond.xlsx",
   overwrite = TRUE
 )
@@ -399,5 +687,49 @@ write.xlsx(
 
 ```{r}
 
+# Tabla para el gráfico: porcentaje de calidad de vivienda por clase
 
+tabla_grafico_cal_viv <- base_hogares %>% 
+  filter(!is.na(cal_viv) & !is.na(clase_torrado_PSH_f)) %>% 
+  group_by(clase_torrado_PSH_f, cal_viv) %>% 
+  summarise(
+    total = sum(POND2R_FIN_n, na.rm = TRUE),
+    .groups = "drop"
+  ) %>% 
+  group_by(clase_torrado_PSH_f) %>% 
+  mutate(
+    porcentaje = total / sum(total) * 100
+  )
+
+
+# Gráfico de barras porcentuales
+
+grafico_cal_viv <- ggplot(
+  tabla_grafico_cal_viv,
+  aes(x = clase_torrado_PSH_f, y = porcentaje, fill = cal_viv)) +
+  geom_col() +
+  geom_text(
+    aes(label = round(porcentaje, 1)),
+    position = position_stack(vjust = 0.5),
+    size = 3) +
+  scale_fill_manual(
+    values = c(
+      "aceptable" = "#7FAF3A",
+      "recuperable" = "#F2C94C",
+      "irrecuperable" = "#C94C3C")) +
+      labs(
+        x = "Clase social",
+        y = "%",
+        fill = "Calidad de la vivienda")
+
+grafico_cal_viv
+
+
+ggsave(
+  filename = "salidas/grafico_calidad_vivienda_clase.jpg",
+  plot = grafico_cal_viv,
+  dpi = 300,
+  width = 8,
+  height = 5
+)
 ```
